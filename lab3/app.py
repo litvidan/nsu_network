@@ -8,9 +8,9 @@ import threading
 from tkinter import scrolledtext
 import json
 
-GEOCODING_API_KEY = '6e904297-15b6-4513-9128-f7e2fe87fb63'
-WEATHER_API_KEY = '89182125333df18a51c2c0b92ed77cdc'
-MISTRAL_API_KEY = 'QnLCw0hDyb6YjwPos7nNjhvlKz9bRDc0'
+GEOCODING_API_KEY = 'KEY_HERE'
+WEATHER_API_KEY = 'KEY_HERE'
+MISTRAL_API_KEY = 'KEY_HERE'
 
 async def fetch_weather(session, latitude, longitude):
     url = f"http://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={WEATHER_API_KEY}&units=metric"
@@ -19,13 +19,13 @@ async def fetch_weather(session, latitude, longitude):
             return await response.json()
         return None
 
-async def fetch_story_about_place_stream(session, place_name, text_widget):
+async def fetch_story_about_place_stream(session, place_name, place_country, place_city, text_widget):
     url = "https://api.mistral.ai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json"
     }
-    prompt = f"Расскажи историю о месте: {place_name}. Опиши его атмосферу, историю и то, что там можно увидеть. В трёх предложениях."
+    prompt = f"Расскажи историю о месте: {place_name}, {place_country}, {place_city}. Опиши его атмосферу, историю и то, что там можно увидеть. В трёх предложениях."
     payload = {
         "model": "codestral-latest",
         "messages": [
@@ -45,13 +45,11 @@ async def fetch_story_about_place_stream(session, place_name, text_widget):
                 if line.startswith(b'data: '):
                     chunk = line[6:].decode('utf-8')
                     if chunk.strip() == "[DONE]":
-                        print("DONE")
                         break  # Завершение обработки потока данных
                     if chunk.strip():
                         try:
                             data = json.loads(chunk)
                             content = data['choices'][0]['delta']['content']
-                            print(content)
                             if content:
                                 text_widget.config(state=tk.NORMAL)  # Включаем редактирование для вставки текста
                                 text_widget.insert(tk.END, content)
@@ -113,9 +111,11 @@ def on_location_select(event):
     latitude = details[4]
     longitude = details[5]
     location_name = details[0]
+    location_country = details[1]
+    location_city = details[2]
 
     # Запустить асинхронные запросы в отдельных потоках
-    threading.Thread(target=asyncio.run, args=(fetch_story_and_show(location_name),)).start()
+    threading.Thread(target=asyncio.run, args=(fetch_story_and_show(location_name, location_country, location_city),)).start()
     sleep(1)
     threading.Thread(target=asyncio.run, args=(fetch_weather_and_show(latitude, longitude),)).start()
 
@@ -125,10 +125,10 @@ async def fetch_weather_and_show(latitude, longitude):
         weather_data = await fetch_weather(session, latitude, longitude)
         show_weather_results(weather_data)
 
-async def fetch_story_and_show(location_name):
+async def fetch_story_and_show(location_name, location_country, location_city):
     """Асинхронно загружает рассказ о месте и показывает результаты."""
     async with aiohttp.ClientSession() as session:
-        await fetch_story_about_place_stream(session, location_name, story_text)
+        await fetch_story_about_place_stream(session, location_name, location_country, location_city, story_text)
 
 def search_location():
     """Функция для выполнения поиска мест."""
